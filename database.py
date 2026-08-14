@@ -53,7 +53,7 @@ def get_conn():
 
 def init_db():
     with get_conn() as conn:
-        conn.execute(SCHEMA)
+        conn.executescript(SCHEMA)
 
 
 def insert_signal(symbol, direction, entry_price, stop_loss, take_profit) -> int:
