@@ -1,0 +1,52 @@
+name: Crypto Signal Bot Scan
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: crypto-signal-bot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run one scan cycle
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          EXCHANGE_ID: binance
+          SYMBOL_MODE: auto
+          AUTO_QUOTE_CURRENCY: USDT
+          AUTO_TOP_N: '30'
+          SYMBOL_REFRESH_SECONDS: '900'
+          HTF: 4h
+          LTF: 15m
+          MICRO_TF: 1m
+          RISK_REWARD: '2.0'
+          SCAN_INTERVAL_SECONDS: '900'
+          BATCH_SIZE: '10'
+          DB_PATH: signals.db
+        run: python run_once.py
+
+      - name: Commit updated database
+        run: |
+          git config user.name "crypto-signal-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add signals.db
+          git diff --cached --quiet || git commit -m "Update signal db [skip ci]"
+          git push
