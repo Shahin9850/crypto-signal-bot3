@@ -83,6 +83,24 @@ def scan_for_signals(client, symbols=None):
             if signal is None:
                 continue
 
+            # Sanity check: the entry/stop were computed from the last CLOSED
+            # candle, but live price may have already moved past the stop
+            # (or even the target) by the time we get here. Sending a signal
+            # that is already invalid the moment it's posted is worse than
+            # useless, so skip it and wait for the setup to re-form instead.
+            try:
+                current_price = data_fetcher.fetch_last_price(symbol)
+            except Exception:
+                logger.exception("Could not fetch live price for %s, skipping signal", symbol)
+                continue
+
+            if signal.direction == "long" and current_price <= signal.stop_loss:
+                logger.info("Skipping %s long signal: price already at/below stop loss", symbol)
+                continue
+            if signal.direction == "short" and current_price >= signal.stop_loss:
+                logger.info("Skipping %s short signal: price already at/above stop loss", symbol)
+                continue
+
             signal_id = database.insert_signal(
                 symbol=signal.symbol,
                 direction=signal.direction,
@@ -113,9 +131,14 @@ def _maybe_send_batch_report(client):
     database.mark_batch_notified([r["id"] for r in unbatched])
 
 
-def monitor_open_signals(client):
+def monitor_open_signals(client, exclude_ids=None):
+    """exclude_ids: signal ids to skip this pass -- used to avoid checking a
+    signal for TP/SL in the very same run it was just created in."""
+    exclude_ids = set(exclude_ids or [])
     open_signals = database.get_open_signals()
     for sig in open_signals:
+        if sig["id"] in exclude_ids:
+            continue
         try:
             price = data_fetcher.fetch_last_price(sig["symbol"])
         except Exception:
