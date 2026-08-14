@@ -2,15 +2,18 @@ name: Crypto Signal Bot Scan
 
 on:
   schedule:
+    # every 15 minutes. GitHub may delay scheduled runs by a few minutes
+    # during high load on the platform -- this is normal and out of our
+    # control, not a bug in the workflow.
     - cron: '*/15 * * * *'
-  workflow_dispatch: {}
+  workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
 
 concurrency:
   group: crypto-signal-bot
-  cancel-in-progress: false
+  cancel-in-progress: false   # never overlap two runs; queue instead
 
 permissions:
-  contents: write
+  contents: write   # needed to commit the updated signals.db back to the repo
 
 jobs:
   scan:
@@ -41,6 +44,9 @@ jobs:
           SCAN_INTERVAL_SECONDS: '900'
           BATCH_SIZE: '10'
           DB_PATH: signals.db
+          MARGIN_PER_TRADE_USD: '50'
+          FIXED_RISK_USD: '1.5'
+          MAX_LEVERAGE: '10'
         run: python run_once.py
 
       - name: Commit updated database
