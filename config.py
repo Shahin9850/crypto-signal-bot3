@@ -39,6 +39,15 @@ MICRO_TF = os.getenv("MICRO_TF", "1m")  # used to approximate volume profile / P
 
 RISK_REWARD = float(os.getenv("RISK_REWARD", "2.0"))
 
+# --- Position sizing / leverage suggestion ---
+# Every signal targets a FIXED dollar profit and risks a FIXED dollar amount
+# (profit = risk * RISK_REWARD, so with RISK_REWARD=2.0 a $1.5 risk always
+# targets $3 profit) -- regardless of how close the stop-loss is to entry.
+# Position size and leverage are derived to make that true for each signal.
+FIXED_RISK_USD = float(os.getenv("FIXED_RISK_USD", "1.5"))
+MARGIN_PER_TRADE_USD = float(os.getenv("MARGIN_PER_TRADE_USD", "50"))   # how much margin you put up per trade
+MAX_LEVERAGE = float(os.getenv("MAX_LEVERAGE", "10"))
+
 SCAN_INTERVAL_SECONDS = int(os.getenv("SCAN_INTERVAL_SECONDS", "300"))
 MONITOR_INTERVAL_SECONDS = int(os.getenv("MONITOR_INTERVAL_SECONDS", "60"))
 
