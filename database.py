@@ -32,6 +32,11 @@ CREATE TABLE IF NOT EXISTS signals (
     closed_at TEXT,
     notified_batch INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 """
 
 
@@ -128,3 +133,20 @@ def has_open_signal_for_symbol(symbol: str) -> bool:
             (symbol,),
         ).fetchone()
         return row["c"] > 0
+
+
+def get_meta(key: str):
+    """Small key/value store, used e.g. to remember the last processed
+    Telegram update id between separate script runs (GitHub Actions cron)."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+        return row["value"] if row else None
+
+
+def set_meta(key: str, value: str):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO meta (key, value) VALUES (?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (key, value),
+        )

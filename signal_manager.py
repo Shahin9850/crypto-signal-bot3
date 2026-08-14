@@ -1,5 +1,9 @@
 """
-Orchestrates the whole pipeline:
+Orchestrates the whole pipeline. Written as plain synchronous functions
+(no asyncio) so it can be called from a single-shot script that runs once
+every 15 minutes via a GitHub Actions cron schedule -- no long-running
+process or server required.
+
   - scan_for_signals(): run the strategy on every configured symbol, store
     and send any new signal, and trigger a batch report every BATCH_SIZE
     signals.
@@ -64,10 +68,11 @@ def format_status_message() -> str:
     )
 
 
-async def scan_for_signals(bot, symbols=None):
-    """Run once per SCAN_INTERVAL_SECONDS. Returns list of sent signal ids.
-    `symbols` overrides config.SYMBOLS -- used when SYMBOL_MODE=auto to scan
-    the current top-volume watch-list instead of a fixed list."""
+def scan_for_signals(client, symbols=None):
+    """Run once per script invocation. `client` is a TelegramClient
+    (see telegram_client.py). `symbols` overrides config.SYMBOLS -- used
+    when SYMBOL_MODE=auto to scan the current top-volume watch-list.
+    Returns list of newly inserted signal ids."""
     symbols = symbols if symbols is not None else config.SYMBOLS
     sent_ids = []
     for symbol in symbols:
@@ -87,8 +92,8 @@ async def scan_for_signals(bot, symbols=None):
             )
             sent_ids.append(signal_id)
 
-            await bot.send_message(chat_id=config.TELEGRAM_CHAT_ID, text=format_signal_message(signal))
-            await _maybe_send_batch_report(bot)
+            client.send_message(config.TELEGRAM_CHAT_ID, format_signal_message(signal))
+            _maybe_send_batch_report(client)
 
         except Exception:
             logger.exception("Error scanning symbol %s", symbol)
@@ -96,7 +101,7 @@ async def scan_for_signals(bot, symbols=None):
     return sent_ids
 
 
-async def _maybe_send_batch_report(bot):
+def _maybe_send_batch_report(client):
     unbatched = database.get_unbatched_signals(config.BATCH_SIZE)
     if len(unbatched) < config.BATCH_SIZE:
         return
@@ -104,14 +109,11 @@ async def _maybe_send_batch_report(bot):
     total_signals = database.count_total_signals()
     batch_number = (total_signals - 1) // config.BATCH_SIZE + 1
 
-    await bot.send_message(
-        chat_id=config.TELEGRAM_CHAT_ID,
-        text=format_batch_message(unbatched, batch_number),
-    )
+    client.send_message(config.TELEGRAM_CHAT_ID, format_batch_message(unbatched, batch_number))
     database.mark_batch_notified([r["id"] for r in unbatched])
 
 
-async def monitor_open_signals(bot):
+def monitor_open_signals(client):
     open_signals = database.get_open_signals()
     for sig in open_signals:
         try:
@@ -136,7 +138,7 @@ async def monitor_open_signals(bot):
             database.close_signal(sig["id"], hit)
             emoji = "✅" if hit == "tp" else "❌"
             label = "تیک‌پرافیت خورد" if hit == "tp" else "استاپ خورد"
-            await bot.send_message(
-                chat_id=config.TELEGRAM_CHAT_ID,
-                text=f"{emoji} سیگنال {sig['symbol']} ({sig['direction']}) {label}\nقیمت: {price:.6g}",
+            client.send_message(
+                config.TELEGRAM_CHAT_ID,
+                f"{emoji} سیگنال {sig['symbol']} ({sig['direction']}) {label}\nقیمت: {price:.6g}",
             )

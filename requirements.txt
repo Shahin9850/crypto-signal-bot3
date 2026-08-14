@@ -1,6 +1,10 @@
 ccxt>=4.3.0
 pandas>=2.0.0
 numpy>=1.24.0
-python-telegram-bot>=21.0
+requests>=2.31.0
 python-dotenv>=1.0.0
+
+# only needed if you run bot.py (persistent mode on a VPS/Termux) instead
+# of run_once.py (GitHub Actions cron mode) -- see README
+python-telegram-bot>=21.0
 APScheduler>=3.10.0
