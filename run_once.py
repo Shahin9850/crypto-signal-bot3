@@ -97,8 +97,8 @@ def main():
     logger.info("Watching %d symbols (mode=%s)", len(symbols), config.SYMBOL_MODE)
 
     handle_incoming_messages(client, symbols)
-    signal_manager.scan_for_signals(client, symbols=symbols)
-    signal_manager.monitor_open_signals(client)
+    new_ids = signal_manager.scan_for_signals(client, symbols=symbols)
+    signal_manager.monitor_open_signals(client, exclude_ids=new_ids)
 
     logger.info("Run complete.")
 
